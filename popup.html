@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body { width: 340px; font-family: system-ui, sans-serif; margin: 0; padding: 14px; }
+    h2 { margin: 0 0 4px; font-size: 16px; }
+    p.sub { margin: 0 0 10px; color: #555; font-size: 12px; }
+    #fillBtn { width: 100%; padding: 10px; font-size: 15px; font-weight: 700; background: #16a34a; color: #fff; border: 0; border-radius: 8px; cursor: pointer; }
+    #fillBtn:hover { background: #15803d; }
+    #status { margin-top: 8px; font-size: 13px; min-height: 18px; }
+    details { margin-top: 10px; }
+    summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
+    label { font-size: 11px; color: #333; display: flex; flex-direction: column; gap: 2px; }
+    input, textarea { padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 12px; width: 100%; box-sizing: border-box; }
+    .full { grid-column: 1 / -1; }
+    #saveBtn { margin-top: 8px; width: 100%; padding: 8px; background: #2563eb; color: #fff; border: 0; border-radius: 8px; cursor: pointer; }
+    #clearBtn { margin-top: 6px; width: 100%; padding: 8px; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; }
+    #firstRunHint { display: none; margin: 8px 0; padding: 8px; font-size: 12px; background: #fef9c3; border: 1px solid #fde047; border-radius: 8px; color: #713f12; }
+  </style>
+</head>
+<body>
+  <h2>Quick Job Apply Autofill</h2>
+  <p class="sub">Open any job form (Workday, Greenhouse, Lever…), then click below.</p>
+  <div id="firstRunHint">Welcome! Fill in your details once below and click <b>Save info</b>. Next time just click <b>Start Filling</b>.</div>
+  <button id="fillBtn">Start Filling</button>
+  <div id="status"></div>
+
+  <details id="profileDetails" open>
+    <summary>My info (saved in this browser)</summary>
+    <div class="grid" id="form"></div>
+    <button id="saveBtn">Save info</button>
+    <button id="clearBtn">Clear saved info</button>
+  </details>
+
+  <script src="profile.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
