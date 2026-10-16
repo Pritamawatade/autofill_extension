@@ -96,11 +96,35 @@ document.getElementById("fillBtn").addEventListener("click", async () => {
     }
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) { status.textContent = "No active tab."; return; }
-    // Ensure content script is injected (handles SPAs / late loads)
+    // Ensure content script is injected (handles SPAs / late loads,
+    // Shadow-DOM pages like SmartRecruiters oneclick-ui, and iframes)
     try {
       await chrome.scripting.executeScript({ target: { tabId: tab.id, allFrames: true }, files: ["profile.js", "content.js"] });
     } catch (e) { /* already injected — ignore */ }
-    const res = await chrome.tabs.sendMessage(tab.id, { action: "FILL" });
+    // Run fill in EVERY frame (top + iframes). tabs.sendMessage only reaches
+    // the top frame, so forms inside iframes would be missed.
+    let res = null;
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id, allFrames: true },
+        func: () => (typeof window.__qja_fill === "function" ? window.__qja_fill() : Promise.resolve(null)),
+      });
+      const frames = (results || []).map((r) => r?.result).filter(Boolean);
+      if (frames.length) {
+        res = frames.reduce((acc, r) => ({
+          filled: (acc.filled || 0) + (r.filled || 0),
+          skipped: (acc.skipped || 0) + (r.skipped || 0),
+          total: (acc.total || 0) + (r.total || 0),
+          details: [...(acc.details || []), ...(r.details || [])],
+          noProfile: acc.noProfile && r.noProfile,
+        }), { filled: 0, skipped: 0, total: 0, details: [], noProfile: true });
+        if (res.total > 0) res.noProfile = false;
+      }
+    } catch (e) { /* executeScript blocked — fall back to messaging */ }
+    if (!res) {
+      try { res = await chrome.tabs.sendMessage(tab.id, { action: "FILL" }); }
+      catch (e) { res = null; }
+    }
     if (res?.noProfile) {
       if (firstRunHint) firstRunHint.style.display = "block";
       if (detailsEl) detailsEl.open = true;
