@@ -326,8 +326,12 @@
   async function getProfile() {
     try {
       const stored = await chrome.storage.local.get(null);
-      const hasStored = stored && Object.keys(stored).some((k) => stored[k] !== "" && stored[k] != null);
-      if (hasStored) return { ...EMPTY_PROFILE, ...DEFAULT_PROFILE_EMPTY, ...stored };
+      // Ignore internal meta keys (e.g. __qja_savedAt) — profile data only.
+      const data = Object.fromEntries(
+        Object.entries(stored || {}).filter(([k]) => !k.startsWith("__"))
+      );
+      const hasStored = Object.keys(data).some((k) => data[k] !== "" && data[k] != null);
+      if (hasStored) return { ...EMPTY_PROFILE, ...DEFAULT_PROFILE_EMPTY, ...data };
     } catch (e) { /* storage unavailable (edge cases) */ }
     return { ...EMPTY_PROFILE, ...DEFAULT_PROFILE_EMPTY };
   }

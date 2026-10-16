@@ -19,6 +19,56 @@ const form = document.getElementById("form");
 const status = document.getElementById("status");
 const detailsEl = document.getElementById("profileDetails");
 const firstRunHint = document.getElementById("firstRunHint");
+const draftHint = document.getElementById("draftHint");
+
+// Pop-out mode: when opened as a full tab (?popout=1) the page persists
+// across tab/window switches, so copy-paste never closes it.
+try {
+  if (new URLSearchParams(location.search).has("popout")) {
+    document.body.classList.add("popout");
+    const po = document.getElementById("popoutBtn");
+    if (po) po.style.display = "none";
+  }
+} catch (e) { /* non-browser env */ }
+
+// ---- Unsaved-typing draft (survives popup auto-close) ----
+// Chrome closes extension popups on any focus loss — by design it cannot be
+// prevented. So every keystroke is auto-saved to chrome.storage.session
+// (separate from the saved profile in .local) and restored on reopen.
+const DRAFT_KEY = "qja_draft";
+const SAVE_TS_KEY = "__qja_savedAt";
+async function sessionGet() {
+  try {
+    if (chrome.storage?.session) return await chrome.storage.session.get(DRAFT_KEY);
+  } catch (e) { /* session storage unavailable */ }
+  return {};
+}
+async function sessionSet(draft) {
+  try {
+    if (chrome.storage?.session) await chrome.storage.session.set({ [DRAFT_KEY]: draft });
+  } catch (e) { /* ignore — worst case draft is lost, saved profile unaffected */ }
+}
+async function sessionClear() {
+  try {
+    if (chrome.storage?.session) await chrome.storage.session.remove(DRAFT_KEY);
+  } catch (e) { /* ignore */ }
+}
+function collectForm() {
+  const data = {};
+  document.querySelectorAll("[data-key]").forEach((el) => (data[el.dataset.key] = el.value));
+  return data;
+}
+let draftTimer = null;
+function scheduleDraftSave() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(async () => {
+    await sessionSet({ values: collectForm(), updatedAt: Date.now() });
+    if (draftHint) {
+      draftHint.style.display = "block";
+      draftHint.textContent = "Typing auto-saved — safe to switch tabs, nothing is lost.";
+    }
+  }, 400);
+}
 
 // Build inputs
 for (const [key, label] of FIELDS) {
@@ -42,10 +92,25 @@ async function loadProfile() {
   let stored = {};
   try { stored = await chrome.storage.local.get(null); } catch (e) {}
   const base = (typeof DEFAULT_PROFILE !== "undefined" ? DEFAULT_PROFILE : {});
-  const merged = { ...base, ...stored };
+  const savedAt = stored[SAVE_TS_KEY] || 0;
+  let draftValues = null;
+  try {
+    const d = await sessionGet();
+    const draft = d && d[DRAFT_KEY];
+    if (draft?.values && Object.values(draft.values).some((v) => (v || "").trim?.() !== "")) {
+      // Restore unsaved typing if it is newer than the last explicit Save
+      // (or if nothing was ever saved).
+      if (isEmptyProfile(stored) || (draft.updatedAt || 0) > savedAt) draftValues = draft.values;
+    }
+  } catch (e) { /* no draft */ }
+  const merged = { ...base, ...stored, ...(draftValues || {}) };
   document.querySelectorAll("[data-key]").forEach((el) => {
     el.value = merged[el.dataset.key] || "";
   });
+  if (draftValues && draftHint) {
+    draftHint.style.display = "block";
+    draftHint.textContent = "Restored your unsaved typing — click Save info to keep it.";
+  }
 
   // First-run flow: nothing saved yet -> prompt user to fill + save once.
   const firstRun = isEmptyProfile(stored);
@@ -55,6 +120,31 @@ async function loadProfile() {
   return { stored, firstRun };
 }
 loadProfile();
+form.addEventListener("input", scheduleDraftSave);
+
+// Persistent surfaces: pop-out tab and side panel stay open while the user
+// copies data from other tabs/windows (extension popups always close on blur).
+document.getElementById("popoutBtn")?.addEventListener("click", async () => {
+  try {
+    await sessionSet({ values: collectForm(), updatedAt: Date.now() });
+    await chrome.tabs.create({ url: chrome.runtime.getURL("popup.html?popout=1") });
+    window.close();
+  } catch (e) {
+    status.textContent = "Could not open tab — your typing was auto-saved.";
+  }
+});
+document.getElementById("sidePanelBtn")?.addEventListener("click", async () => {
+  try {
+    if (!chrome.sidePanel?.open) throw new Error("unsupported");
+    await sessionSet({ values: collectForm(), updatedAt: Date.now() });
+    try { await chrome.sidePanel.setOptions({ path: "popup.html", enabled: true }); } catch (e) { /* optional */ }
+    const win = await chrome.windows.getCurrent();
+    await chrome.sidePanel.open({ windowId: win.id });
+    window.close();
+  } catch (e) {
+    status.textContent = 'Side panel unavailable here — use "Open in tab" instead.';
+  }
+});
 
 document.getElementById("saveBtn").addEventListener("click", async () => {
   const data = {};
@@ -70,13 +160,18 @@ document.getElementById("saveBtn").addEventListener("click", async () => {
     return;
   }
   await chrome.storage.local.set(data);
+  try { await chrome.storage.local.set({ [SAVE_TS_KEY]: Date.now() }); } catch (e) { /* ignore */ }
+  await sessionClear();
+  if (draftHint) draftHint.style.display = "none";
   if (firstRunHint) firstRunHint.style.display = "none";
   status.textContent = "Saved ✓ — now click Start Filling on any job form.";
 });
 
 document.getElementById("clearBtn").addEventListener("click", async () => {
   await chrome.storage.local.clear();
+  await sessionClear();
   document.querySelectorAll("[data-key]").forEach((el) => (el.value = ""));
+  if (draftHint) draftHint.style.display = "none";
   if (firstRunHint) firstRunHint.style.display = "block";
   if (detailsEl) detailsEl.open = true;
   status.textContent = "Cleared. Fill and Save again to reuse.";

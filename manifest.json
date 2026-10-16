@@ -3,11 +3,14 @@
   "name": "Quick Job Apply Autofill",
   "version": "1.0.0",
   "description": "One-click autofill for job application forms. Click Start Filling and it fills name, email, phone, address, job info, etc.",
-  "permissions": ["activeTab", "scripting", "storage"],
+  "permissions": ["activeTab", "scripting", "storage", "sidePanel"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Quick Job Apply Autofill"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
   },
   "content_scripts": [
     {

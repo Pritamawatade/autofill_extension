@@ -18,11 +18,21 @@
     #saveBtn { margin-top: 8px; width: 100%; padding: 8px; background: #2563eb; color: #fff; border: 0; border-radius: 8px; cursor: pointer; }
     #clearBtn { margin-top: 6px; width: 100%; padding: 8px; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; }
     #firstRunHint { display: none; margin: 8px 0; padding: 8px; font-size: 12px; background: #fef9c3; border: 1px solid #fde047; border-radius: 8px; color: #713f12; }
+    .toolbar { display: flex; gap: 6px; margin-bottom: 10px; }
+    .toolbtn { flex: 1; padding: 6px 4px; font-size: 12px; font-weight: 600; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 8px; cursor: pointer; }
+    .toolbtn:hover { background: #e2e8f0; }
+    #draftHint { display: none; margin: 6px 0 0; font-size: 11px; color: #64748b; }
+    body.popout { width: auto; max-width: 640px; margin: 0 auto; padding: 24px; }
+    body.popout .grid { grid-template-columns: 1fr 1fr 1fr; }
   </style>
 </head>
 <body>
   <h2>Quick Job Apply Autofill</h2>
   <p class="sub">Open any job form (Workday, Greenhouse, Lever…), then click below.</p>
+  <div class="toolbar">
+    <button class="toolbtn" id="popoutBtn" title="Open in a persistent tab — it won't close while you copy-paste">↗ Open in tab</button>
+    <button class="toolbtn" id="sidePanelBtn" title="Keep this open in the side panel while you browse other tabs">📌 Side panel</button>
+  </div>
   <div id="firstRunHint">Welcome! Fill in your details once below and click <b>Save info</b>. Next time just click <b>Start Filling</b>.</div>
   <button id="fillBtn">Start Filling</button>
   <div id="status"></div>
@@ -32,6 +42,7 @@
     <div class="grid" id="form"></div>
     <button id="saveBtn">Save info</button>
     <button id="clearBtn">Clear saved info</button>
+    <p id="draftHint"></p>
   </details>
 
   <script src="profile.js"></script>
